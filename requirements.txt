@@ -1,0 +1,13 @@
+# Core dependencies
+requests>=2.25.0
+beautifulsoup4>=4.9.0
+lxml>=4.6.0
+dnspython>=2.4.0
+python-whois>=0.8.0
+
+# Development dependencies (optional)
+pytest>=6.0.0
+pytest-cov>=2.10.0
+black>=21.0.0
+flake8>=3.8.0
+mypy>=0.800

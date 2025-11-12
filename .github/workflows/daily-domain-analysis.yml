@@ -1,0 +1,127 @@
+name: Daily Domain Analysis
+
+on:
+  schedule:
+    # Run daily at 2:00 AM UTC (after the monthly pixel analysis)
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    # Allow manual triggering
+
+jobs:
+  domain-analysis:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history to ensure we have all data files
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Find latest pixel data file
+      id: find-latest
+      run: |
+        # Find the most recent pixel data file in the data directory
+        LATEST_FILE=$(ls -t data/pixel_data_*.json 2>/dev/null | head -n1)
+        if [ -z "$LATEST_FILE" ]; then
+          echo "No pixel data files found in data directory"
+          exit 1
+        fi
+        echo "latest_file=$LATEST_FILE" >> $GITHUB_OUTPUT
+        echo "Found latest pixel data file: $LATEST_FILE"
+    
+    - name: Run domain analysis
+      run: |
+        echo "Running domain analysis on: ${{ steps.find-latest.outputs.latest_file }}"
+        python -m mdh_analyzer domains "${{ steps.find-latest.outputs.latest_file }}" --output-dir reports --verbose
+    
+    - name: Generate markdown report
+      run: |
+        # Find the most recent domain analysis report
+        LATEST_REPORT=$(ls -t reports/report_*.json 2>/dev/null | head -n1)
+        if [ -n "$LATEST_REPORT" ]; then
+          echo "Generating markdown report using:"
+          echo "  Pixel data: ${{ steps.find-latest.outputs.latest_file }}"
+          echo "  Domain analysis: $LATEST_REPORT"
+          python -m mdh_analyzer report "${{ steps.find-latest.outputs.latest_file }}" "$LATEST_REPORT" --verbose
+        else
+          echo "No domain analysis report found to generate markdown report"
+        fi
+    
+    - name: Check for new reports
+      id: check-reports
+      run: |
+        # Check if any new report files were created (both JSON and MD)
+        if [ -n "$(find reports -name 'report_*' -newer '${{ steps.find-latest.outputs.latest_file }}' 2>/dev/null)" ]; then
+          echo "new_reports=true" >> $GITHUB_OUTPUT
+          echo "New reports generated"
+        else
+          echo "new_reports=false" >> $GITHUB_OUTPUT
+          echo "No new reports generated"
+        fi
+    
+    - name: Commit and push results
+      if: steps.check-reports.outputs.new_reports == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # Add new report files (both JSON and MD)
+        git add reports/report_*.json reports/report_*.md
+        
+        # Create commit message with timestamp and source file
+        TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        SOURCE_FILE="${{ steps.find-latest.outputs.latest_file }}"
+        
+        git commit -m "Daily domain analysis - $TIMESTAMP
+
+        Source: $SOURCE_FILE
+        Generated comprehensive domain analysis with JSON data and markdown report.
+        
+        Analysis includes:
+        - DNS resolution status (NOERROR, NXDOMAIN, etc.)
+        - HTTP availability and status codes
+        - WHOIS registration status
+        - Summary statistics and distributions
+        - Available domains sorted by pixel count
+        - Markdown report for easy reading"
+        
+        git push
+    
+    - name: Create summary
+      if: always()
+      run: |
+        echo "## Daily Domain Analysis Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+        echo "**Source File:** ${{ steps.find-latest.outputs.latest_file }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ steps.check-reports.outputs.new_reports }}" == "true" ]; then
+          echo "✅ **Status:** Domain analysis completed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Generated Reports:**" >> $GITHUB_STEP_SUMMARY
+          for report in reports/report_*.json reports/report_*.md; do
+            if [ -f "$report" ]; then
+              echo "- \`$report\`" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+        else
+          echo "❌ **Status:** No new reports generated" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Analysis Features:**" >> $GITHUB_STEP_SUMMARY
+        echo "- DNS resolution checking" >> $GITHUB_STEP_SUMMARY
+        echo "- HTTP status verification" >> $GITHUB_STEP_SUMMARY
+        echo "- WHOIS registration status" >> $GITHUB_STEP_SUMMARY
+        echo "- Comprehensive summary statistics" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,55 @@
+name: Monthly Million Dollar Homepage Analysis
+
+on:
+  schedule:
+    # Run monthly on the 1st at 12:00 UTC
+    - cron: '0 12 1 * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Create data directory
+      run: mkdir -p data
+      
+    - name: Run analysis
+      run: |
+        python -m mdh_analyzer
+        
+    - name: Move output to data folder
+      run: |
+        # Find the most recent pixel_data file and move it to data folder
+        latest_file=$(ls -t pixel_data_*.json | head -n1)
+        if [ -f "$latest_file" ]; then
+          mv "$latest_file" "data/"
+          echo "Moved $latest_file to data/"
+        fi
+        
+    - name: Commit and push changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add data/
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "Monthly analysis: $(date +'%Y-%m-%d %H:%M:%S UTC')"
+          git push
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
