@@ -184,6 +184,16 @@ def main():
         analyze_domains(args)
     elif args.command == 'report':
         generate_report(args)
+    elif args.command is None:
+        # Default to pixel analysis if no command specified
+        # Create a default args object for pixel analysis
+        default_args = argparse.Namespace(
+            command='pixels',
+            url='http://www.milliondollarhomepage.com/',
+            output_dir='data',
+            verbose=args.verbose
+        )
+        analyze_pixels(default_args)
     else:
         # Show help if no command specified
         parser.print_help()
