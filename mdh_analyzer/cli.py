@@ -137,6 +137,11 @@ def main():
         default='data',
         help='Output directory for generated files (default: data)'
     )
+    pixel_parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Enable verbose output'
+    )
     
     # Domain analysis subcommand
     domain_parser = subparsers.add_parser('domains', help='Analyze domains from pixel data')
@@ -154,6 +159,11 @@ def main():
         type=int,
         default=10,
         help='HTTP timeout in seconds (default: 10)'
+    )
+    domain_parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Enable verbose output'
     )
     
     # Report generation subcommand
@@ -174,6 +184,11 @@ def main():
     report_parser.add_argument(
         '--output', '-o',
         help='Custom output filename (optional)'
+    )
+    report_parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Enable verbose output'
     )
     
     args = parser.parse_args()

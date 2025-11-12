@@ -1,0 +1,156 @@
+name: Repository Maintenance
+
+on:
+  schedule:
+    # Run weekly on Sundays at 3:00 AM UTC
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+    # Allow manual triggering
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  cleanup:
+    name: Repository Cleanup
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Clean up old temporary files
+      run: |
+        # Remove any temporary HTML files older than 7 days
+        find . -name "*.html" -type f -mtime +7 -not -path "./.git/*" -delete || true
+        
+        # Remove any temporary log files
+        find . -name "*.log" -type f -mtime +7 -not -path "./.git/*" -delete || true
+        
+        # Remove Python cache files
+        find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+        find . -name "*.pyc" -delete 2>/dev/null || true
+        find . -name "*.pyo" -delete 2>/dev/null || true
+    
+    - name: Archive old reports
+      run: |
+        # Keep only the last 30 reports in the reports directory
+        cd reports 2>/dev/null || exit 0
+        
+        # Count JSON reports
+        json_count=$(ls -1 report_*.json 2>/dev/null | wc -l)
+        if [ "$json_count" -gt 30 ]; then
+          echo "Found $json_count JSON reports, keeping latest 30"
+          ls -t report_*.json | tail -n +31 | xargs rm -f
+        fi
+        
+        # Count Markdown reports
+        md_count=$(ls -1 report_*.md 2>/dev/null | wc -l)
+        if [ "$md_count" -gt 30 ]; then
+          echo "Found $md_count Markdown reports, keeping latest 30"
+          ls -t report_*.md | tail -n +31 | xargs rm -f
+        fi
+    
+    - name: Archive old pixel data
+      run: |
+        # Keep only the last 12 pixel data files (roughly 1 year of monthly data)
+        cd data 2>/dev/null || exit 0
+        
+        pixel_count=$(ls -1 pixel_data_*.json 2>/dev/null | wc -l)
+        if [ "$pixel_count" -gt 12 ]; then
+          echo "Found $pixel_count pixel data files, keeping latest 12"
+          ls -t pixel_data_*.json | tail -n +13 | xargs rm -f
+        fi
+    
+    - name: Update repository statistics
+      run: |
+        echo "## Repository Statistics" > STATS.md
+        echo "" >> STATS.md
+        echo "**Last Updated:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> STATS.md
+        echo "" >> STATS.md
+        
+        # Count files
+        echo "### File Counts" >> STATS.md
+        echo "- **Pixel Data Files:** $(ls -1 data/pixel_data_*.json 2>/dev/null | wc -l)" >> STATS.md
+        echo "- **Domain Reports (JSON):** $(ls -1 reports/report_*.json 2>/dev/null | wc -l)" >> STATS.md
+        echo "- **Domain Reports (Markdown):** $(ls -1 reports/report_*.md 2>/dev/null | wc -l)" >> STATS.md
+        echo "" >> STATS.md
+        
+        # Latest files
+        echo "### Latest Files" >> STATS.md
+        latest_pixel=$(ls -t data/pixel_data_*.json 2>/dev/null | head -n1)
+        if [ -n "$latest_pixel" ]; then
+          echo "- **Latest Pixel Data:** \`$latest_pixel\`" >> STATS.md
+        fi
+        
+        latest_report=$(ls -t reports/report_*.json 2>/dev/null | head -n1)
+        if [ -n "$latest_report" ]; then
+          echo "- **Latest Domain Report:** \`$latest_report\`" >> STATS.md
+        fi
+        
+        echo "" >> STATS.md
+        echo "### Repository Health" >> STATS.md
+        echo "- **Python Files:** $(find . -name "*.py" -not -path "./.git/*" | wc -l)" >> STATS.md
+        echo "- **GitHub Workflows:** $(ls -1 .github/workflows/*.yml 2>/dev/null | wc -l)" >> STATS.md
+        echo "- **Total Size:** $(du -sh . 2>/dev/null | cut -f1)" >> STATS.md
+    
+    - name: Check for changes and commit
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action - Maintenance"
+        
+        # Add any changes
+        git add -A
+        
+        if git diff --staged --quiet; then
+          echo "No maintenance changes to commit"
+        else
+          git commit -m "chore: automated repository maintenance
+          
+          - Cleaned up temporary files
+          - Archived old reports (keeping latest 30)
+          - Archived old pixel data (keeping latest 12)
+          - Updated repository statistics
+          
+          Automated maintenance performed on $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          
+          git push
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Create maintenance summary
+      if: always()
+      run: |
+        echo "## Repository Maintenance Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### Cleanup Actions" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Removed temporary files older than 7 days" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Cleaned Python cache files" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Archived old reports (keeping latest 30)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Archived old pixel data (keeping latest 12)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Updated repository statistics" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### Current Status" >> $GITHUB_STEP_SUMMARY
+        echo "- **Pixel Data Files:** $(ls -1 data/pixel_data_*.json 2>/dev/null | wc -l)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Domain Reports:** $(ls -1 reports/report_*.json 2>/dev/null | wc -l) JSON, $(ls -1 reports/report_*.md 2>/dev/null | wc -l) Markdown" >> $GITHUB_STEP_SUMMARY
+        echo "- **Repository Size:** $(du -sh . 2>/dev/null | cut -f1)" >> $GITHUB_STEP_SUMMARY
