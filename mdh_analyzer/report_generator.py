@@ -358,8 +358,8 @@ class MarkdownReportGenerator:
             "",
             "### All Available Domains by Pixel Count",
             "",
-            "| Domain | Pixels | DNS Status | HTTP Status |",
-            "|--------|--------|------------|-------------|",
+            "| Domain | Pixels | DNS Status | HTTP Status | CNAME |",
+            "|--------|--------|------------|-------------|-------|",
         ]
 
         # Show ALL available domains (not just top 20)
@@ -368,8 +368,11 @@ class MarkdownReportGenerator:
             pixels = domain_info.get("pixels", 0)
             dns_status = domain_info.get("dns_status", "")
             http_status = domain_info.get("http_status", 0)
+            cname_record = domain_info.get("cname_record", "")
 
-            lines.append(f"| `{domain}` | {pixels:,} | {dns_status} | {http_status} |")
+            cname_display = cname_record if cname_record else "-"
+
+            lines.append(f"| `{domain}` | {pixels:,} | {dns_status} | {http_status} | {cname_display} |")
 
         lines.extend(["", "---", ""])
 
@@ -388,18 +391,24 @@ class MarkdownReportGenerator:
             f"**{len(nxdomain_domains):,} domains** no longer exist, "
             f"representing **{total_pixels:,} pixels** of lost content.",
             "",
-            "### Top Non-Existent Domains by Pixel Count",
+            "### All Non-Existent Domains by Pixel Count",
             "",
-            "| Domain | Pixels | WHOIS Status | CNAME |",
-            "|--------|--------|--------------|-------|",
+            "| Domain | Pixels | WHOIS Status | Registered At | Expiry Date | CNAME |",
+            "|--------|--------|--------------|---------------|-------------|-------|",
         ]
 
-        # Show top 15 NXDOMAIN domains
-        for domain_info in nxdomain_domains[:15]:
+        # Show ALL NXDOMAIN domains (not just top 15)
+        for domain_info in nxdomain_domains:
             domain = domain_info.get("domain", "")
             pixels = domain_info.get("pixels", 0)
             whois_status = domain_info.get("whois_status", "")
             cname_record = domain_info.get("cname_record", "")
+            registered_at = domain_info.get("registered_at", "")
+            expiry_date = domain_info.get("expiry_date", "")
+
+            # Format dates for display
+            reg_display = registered_at.split('T')[0] if registered_at else "-"
+            exp_display = expiry_date.split('T')[0] if expiry_date else "-"
 
             # Only show CNAME if domain is not available for purchase
             cname_display = (
@@ -407,12 +416,8 @@ class MarkdownReportGenerator:
             )
 
             lines.append(
-                f"| `{domain}` | {pixels:,} | {whois_status} | {cname_display} |"
+                f"| `{domain}` | {pixels:,} | {whois_status} | {reg_display} | {exp_display} | {cname_display} |"
             )
-
-        if len(nxdomain_domains) > 15:
-            lines.append("| ... | ... | ... | ... |")
-            lines.append(f"| *{len(nxdomain_domains) - 15:,} more domains* | | | |")
 
         lines.extend(["", "---", ""])
 
@@ -431,20 +436,26 @@ class MarkdownReportGenerator:
             "These are the largest registered domains still active on the "
             "Million Dollar Homepage:",
             "",
-            "| Domain | Pixels | DNS Status | HTTP Status | WHOIS Status |",
-            "|--------|--------|------------|-------------|--------------|",
+            "| Domain | Pixels | DNS Status | HTTP Status | WHOIS Status | Registered At | Expiry Date |",
+            "|--------|--------|------------|-------------|--------------|---------------|-------------|",
         ]
 
-        # Show top 15 registered domains
-        for domain_info in registered_domains[:15]:
+        # Show ALL registered domains (not just top 15)
+        for domain_info in registered_domains:
             domain = domain_info.get("domain", "")
             pixels = domain_info.get("pixels", 0)
             dns_status = domain_info.get("dns_status", "")
             http_status = domain_info.get("http_status", 0)
             whois_status = domain_info.get("whois_status", "")
+            registered_at = domain_info.get("registered_at", "")
+            expiry_date = domain_info.get("expiry_date", "")
+
+            # Format dates for display
+            reg_display = registered_at.split('T')[0] if registered_at else "-"
+            exp_display = expiry_date.split('T')[0] if expiry_date else "-"
 
             lines.append(
-                f"| `{domain}` | {pixels:,} | {dns_status} | {http_status} | {whois_status} |"
+                f"| `{domain}` | {pixels:,} | {dns_status} | {http_status} | {whois_status} | {reg_display} | {exp_display} |"
             )
 
         lines.extend(["", "---", ""])

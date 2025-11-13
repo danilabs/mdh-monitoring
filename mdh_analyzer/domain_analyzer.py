@@ -165,35 +165,69 @@ class DomainAnalyzer:
 
         return 0
 
-    def check_whois_status(self, domain: str) -> str:
+    def check_whois_status(self, domain: str) -> Tuple[str, Dict]:
         """
-        Check domain availability status using WHOIS
+        Check domain availability status using WHOIS and extract detailed information
 
         Args:
             domain: Domain name to check
 
         Returns:
-            Status: 'registered', 'available', or 'unknown'
+            Tuple of (Status: 'registered', 'available', or 'unknown', WHOIS details dict)
         """
         if not domain:
-            return "unknown"
+            return "unknown", {}
 
         try:
             w = whois.whois(domain)
+            whois_details = {}
+
+            # Extract detailed WHOIS information
+            if w.creation_date:
+                # Handle both single dates and lists of dates
+                creation_date = w.creation_date
+                if isinstance(creation_date, list):
+                    creation_date = creation_date[0] if creation_date else None
+                if creation_date:
+                    whois_details["registered_at"] = creation_date.isoformat() if hasattr(creation_date, 'isoformat') else str(creation_date)
+
+            if w.expiration_date:
+                # Handle both single dates and lists of dates
+                expiry_date = w.expiration_date
+                if isinstance(expiry_date, list):
+                    expiry_date = expiry_date[0] if expiry_date else None
+                if expiry_date:
+                    whois_details["expiry_date"] = expiry_date.isoformat() if hasattr(expiry_date, 'isoformat') else str(expiry_date)
+
+            if w.updated_date:
+                # Handle both single dates and lists of dates
+                updated_date = w.updated_date
+                if isinstance(updated_date, list):
+                    updated_date = updated_date[0] if updated_date else None
+                if updated_date:
+                    whois_details["last_updated"] = updated_date.isoformat() if hasattr(updated_date, 'isoformat') else str(updated_date)
+
+            if w.name_servers:
+                # Handle nameservers (can be list or single value)
+                nameservers = w.name_servers
+                if isinstance(nameservers, list):
+                    whois_details["nameservers"] = [ns.lower() if isinstance(ns, str) else str(ns) for ns in nameservers if ns]
+                elif nameservers:
+                    whois_details["nameservers"] = [str(nameservers).lower()]
 
             # Check if domain is registered
             if w.status is not None or w.creation_date is not None:
-                return "registered"
+                return "registered", whois_details
             if w.status is None and w.creation_date is None:
-                return "available"
-            return "registered"
+                return "available", whois_details
+            return "registered", whois_details
 
         except whois.exceptions.WhoisDomainNotFoundError:
             # Domain might be available or unsupported TLD
-            return "available"
+            return "available", {}
         except (OSError, ValueError, TypeError, Exception) as e:
             logger.debug("WHOIS error for %s: %s", domain, e)
-            return "unknown"
+            return "unknown", {}
 
     def analyze_domain(self, domain: str, show_progress: bool = True) -> Dict:
         """
@@ -210,12 +244,17 @@ class DomainAnalyzer:
             logger.debug("Analyzing domain: %s", domain)
 
         dns_status, cname_record = self.check_dns_status(domain)
+        http_status = self.check_http_status(domain)
+        whois_status, whois_details = self.check_whois_status(domain)
+
+        # Determine final availability status based on improved logic
+        final_whois_status = self._determine_availability_status(dns_status, whois_status)
 
         result = {
             "domain": domain,
             "dns_status": dns_status,
-            "http_status": self.check_http_status(domain),
-            "whois_status": self.check_whois_status(domain),
+            "http_status": http_status,
+            "whois_status": final_whois_status,
             "analyzed_at": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -223,7 +262,39 @@ class DomainAnalyzer:
         if cname_record:
             result["cname_record"] = cname_record
 
+        # Add detailed WHOIS information if available
+        if whois_details:
+            result.update(whois_details)
+
         return result
+
+    def _determine_availability_status(self, dns_status: str, whois_status: str) -> str:
+        """
+        Determine final availability status based on DNS and WHOIS results
+
+        Args:
+            dns_status: DNS resolution status
+            whois_status: WHOIS lookup status
+
+        Returns:
+            Final availability status: 'registered', 'available', or 'unknown'
+        """
+        # If DNS returns NOERROR, domain is definitely registered (has DNS configured)
+        if dns_status == "NOERROR":
+            return "registered"
+        
+        # If DNS returns NXDOMAIN, check WHOIS to determine if domain is actually registered
+        # (some registered domains might not have DNS configured)
+        if dns_status == "NXDOMAIN":
+            if whois_status == "registered":
+                return "registered"  # Domain is registered but DNS not configured
+            elif whois_status == "available":
+                return "available"   # Domain is truly available
+            else:
+                return "unknown"     # Cannot determine from WHOIS
+        
+        # For other DNS statuses (TIMEOUT, SERVFAIL, ERROR), rely on WHOIS
+        return whois_status
 
     def analyze_domains_from_json(
         self, json_file_path: str, use_threading: bool = True
