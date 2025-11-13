@@ -118,8 +118,9 @@ class TestDomainAnalyzer:
         """Test successful DNS resolution."""
         mock_resolve.return_value = MagicMock()
 
-        status = self.analyzer.check_dns_status("example.com")
+        status, cname = self.analyzer.check_dns_status("example.com")
         assert status == "NOERROR"
+        assert cname is None
         mock_resolve.assert_called_once_with("example.com", "A")
 
     @patch("dns.resolver.resolve")
@@ -129,8 +130,9 @@ class TestDomainAnalyzer:
 
         mock_resolve.side_effect = NXDOMAIN()
 
-        status = self.analyzer.check_dns_status("nonexistent.example")
+        status, cname = self.analyzer.check_dns_status("nonexistent.example")
         assert status == "NXDOMAIN"
+        # cname could be None or a string depending on _get_cname_record
 
     @patch("dns.resolver.resolve")
     def test_check_dns_status_timeout(self, mock_resolve):
@@ -139,16 +141,18 @@ class TestDomainAnalyzer:
 
         mock_resolve.side_effect = Timeout()
 
-        status = self.analyzer.check_dns_status("timeout.example")
+        status, cname = self.analyzer.check_dns_status("timeout.example")
         assert status == "TIMEOUT"
+        assert cname is None
 
     @patch("dns.resolver.resolve")
     def test_check_dns_status_other_exception(self, mock_resolve):
         """Test other DNS exceptions."""
         mock_resolve.side_effect = Exception("DNS error")
 
-        status = self.analyzer.check_dns_status("error.example")
+        status, cname = self.analyzer.check_dns_status("error.example")
         assert status == "ERROR"
+        assert cname is None
 
     @patch("requests.head")
     def test_check_http_status_success(self, mock_head):
@@ -235,7 +239,7 @@ class TestDomainAnalyzer:
     @patch.object(DomainAnalyzer, "check_whois_status")
     def test_analyze_domain(self, mock_whois, mock_http, mock_dns):
         """Test complete domain analysis."""
-        mock_dns.return_value = "NOERROR"
+        mock_dns.return_value = ("NOERROR", None)
         mock_http.return_value = 200
         mock_whois.return_value = "registered"
 

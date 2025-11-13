@@ -238,8 +238,9 @@ class MarkdownReportGenerator:
             try:
                 dt = datetime.fromisoformat(analysis_date.replace("Z", "+00:00"))
                 analysis_date = dt.strftime("%B %d, %Y at %H:%M UTC")
-            except Exception:  # pylint: disable=broad-except
-                pass
+            except Exception as e:  # pylint: disable=broad-except
+                self.logger.warning("Failed to parse analysis date '%s': %s", analysis_date, e)
+                # Keep the original date string if parsing fails
 
         return [
             "# Million Dollar Homepage - Domain Analysis Report",

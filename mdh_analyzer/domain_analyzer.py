@@ -97,7 +97,7 @@ class DomainAnalyzer:
             return ("TIMEOUT", None)
         except dns.resolver.NoNameservers:
             return ("SERVFAIL", None)
-        except (dns.exception.DNSException, OSError) as e:
+        except (dns.exception.DNSException, OSError, Exception) as e:
             logger.debug("DNS error for %s: %s", domain, str(e))
             return ("ERROR", None)
 
@@ -191,7 +191,7 @@ class DomainAnalyzer:
         except whois.exceptions.WhoisDomainNotFoundError:
             # Domain might be available or unsupported TLD
             return "available"
-        except (OSError, ValueError, TypeError) as e:
+        except (OSError, ValueError, TypeError, Exception) as e:
             logger.debug("WHOIS error for %s: %s", domain, e)
             return "unknown"
 
