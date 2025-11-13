@@ -1,15 +1,22 @@
-# Million Dollar Homepage Analyzer
+# MDH Monitoring - Million Dollar Homepage Analysis & Monitoring
 
-[![CI](https://github.com/yourusername/mdh-monitoring/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/mdh-monitoring/actions/workflows/ci.yml)
-[![Daily Domain Analysis](https://github.com/yourusername/mdh-monitoring/actions/workflows/daily-domain-analysis.yml/badge.svg)](https://github.com/yourusername/mdh-monitoring/actions/workflows/daily-domain-analysis.yml)
+[![Code Quality & Security](https://github.com/danilabs/mdh-monitoring/actions/workflows/ci.yml/badge.svg)](https://github.com/danilabs/mdh-monitoring/actions/workflows/ci.yml)
+[![Daily Domain Analysis](https://github.com/danilabs/mdh-monitoring/actions/workflows/daily-domain-analysis.yml/badge.svg)](https://github.com/danilabs/mdh-monitoring/actions/workflows/daily-domain-analysis.yml)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A Python tool to analyze and extract pixel data from the Million Dollar Homepage (http://www.milliondollarhomepage.com/).
+**A comprehensive monitoring and analysis tool for the Million Dollar Homepage** - Track pixel data, monitor domain health, and analyze historical changes over time.
 
-## Overview
+## 🎯 Overview
 
-This project downloads and analyzes the Million Dollar Homepage, extracting pixel area data from the HTML map elements and generating structured JSON output with statistics about domains, pixel allocations, and area mappings.
+MDH Monitoring is a sophisticated Python toolkit designed to continuously monitor and analyze the Million Dollar Homepage (http://www.milliondollarhomepage.com/). This project goes beyond simple data extraction to provide comprehensive domain health monitoring, historical trend analysis, and automated reporting capabilities.
+
+**Key Capabilities:**
+- **Pixel Data Extraction**: Parse HTML map elements to extract detailed pixel area information
+- **Domain Health Monitoring**: Automated DNS, HTTP, and WHOIS status checking for all domains
+- **Historical Tracking**: Track changes over time with timestamped data snapshots
+- **Automated Reporting**: Generate comprehensive markdown and JSON reports
+- **CI/CD Integration**: Automated daily analysis with GitHub Actions workflows
 
 ## Features
 
@@ -24,7 +31,7 @@ This project downloads and analyzes the Million Dollar Homepage, extracting pixe
 ## Installation
 
 ```bash
-git clone https://github.com/yourusername/mdh-monitoring.git
+git clone https://github.com/danilabs/mdh-monitoring.git
 cd mdh-monitoring
 pip install -r requirements.txt
 ```
@@ -231,38 +238,40 @@ The markdown reports include:
 - **Top Active Domains**: Largest registered domains still active
 - **Technical Details**: Analysis methodology and data sources
 
-## Project Structure
+## 📁 Project Structure
 
 ```
-million-dollar-homepage-analyzer/
+mdh-monitoring/
 ├── .github/
 │   └── workflows/
-│       ├── monthly-analysis.yml           # Monthly pixel analysis
-│       ├── daily-domain-analysis.yml      # Daily domain analysis
-│       └── README.md
+│       ├── ci.yml                         # Code quality & security pipeline
+│       └── daily-domain-analysis.yml      # Automated daily domain analysis
 ├── data/
-│   └── pixel_data_YYYYMMDD_HHMMSS.json
+│   └── pixel_data_YYYYMMDD_HHMMSS.json   # Historical pixel data snapshots
 ├── reports/
-│   ├── report_YYYYMMDD_HHMMSS.json        # Domain analysis data
-│   └── report_YYYYMMDD_HHMMSS.md          # Markdown report
-├── mdh_analyzer/
-│   ├── __init__.py
+│   ├── report_YYYYMMDD_HHMMSS.json       # Domain analysis data (JSON)
+│   └── report_YYYYMMDD_HHMMSS.md         # Human-readable reports (Markdown)
+├── mdh_analyzer/                          # Core analysis package
+│   ├── __init__.py                        # Package initialization
 │   ├── __main__.py                        # CLI entry point
-│   ├── analyzer.py                        # Core pixel analysis
+│   ├── analyzer.py                        # Core pixel analysis engine
 │   ├── cli.py                             # Command-line interface
-│   ├── domain_analyzer.py                 # Domain analysis module
-│   ├── downloader.py                      # Web downloading
-│   └── parser.py                          # HTML parsing
-├── tests/
+│   ├── domain_analyzer.py                 # Domain health monitoring
+│   ├── downloader.py                      # Web content retrieval
+│   ├── parser.py                          # HTML parsing utilities
+│   └── report_generator.py                # Report generation
+├── tests/                                 # Test suite
 │   ├── __init__.py
 │   ├── test_analyzer.py                   # Pixel analysis tests
 │   └── test_domain_analyzer.py            # Domain analysis tests
-├── examples/
-│   └── sample_output.json
-├── requirements.txt                       # Dependencies
-├── setup.py                               # Package setup
-├── README.md                              # Documentation
+├── requirements.txt                       # Production dependencies
+├── requirements-dev.txt                   # Development dependencies
+├── setup.py                               # Package configuration
+├── pytest.ini                             # Test configuration
+├── Makefile                               # Development automation
+├── README.md                              # Project documentation
 ├── LICENSE                                # MIT License
+├── STATS.md                               # Project statistics
 └── .gitignore                             # Git ignore rules
 ```
 
@@ -275,29 +284,44 @@ million-dollar-homepage-analyzer/
 - dnspython (for domain analysis)
 - python-whois (for domain analysis)
 
-## Automated Analysis Workflows
+## 🤖 Automated Analysis Workflows
 
-This repository includes multiple GitHub Actions for automated analysis and quality assurance:
+MDH Monitoring includes sophisticated GitHub Actions workflows for continuous monitoring and quality assurance:
 
-### 1. Continuous Integration (CI)
-Comprehensive code quality and security checks that run on every push and pull request.
+### 1. 🔍 Code Quality & Security Pipeline (`ci.yml`)
+**Comprehensive quality assurance** that runs on every push and pull request to ensure code reliability and security.
 
-**Features:**
-- **Code Quality**: Pylint analysis with configurable scoring thresholds
-- **Security Scanning**: Safety (dependency vulnerabilities), Bandit (security linter), Semgrep (static analysis)
-- **Testing**: Unit tests with coverage reporting across Python 3.9-3.12
-- **Type Checking**: MyPy static type analysis
-- **Integration Testing**: End-to-end functionality verification
+**Pipeline Components:**
+- **🧪 Unit Tests & Coverage**: Pytest with coverage analysis and Codecov integration
+- **📝 Code Quality Analysis**: Pylint with configurable scoring (minimum 7.0/10)
+- **🔒 Security Vulnerability Assessment**: Bandit security scanning with critical issue blocking
+- **🔤 Static Type Analysis**: MyPy type checking for better code documentation
+- **📋 Automated PR Annotations**: Inline code review comments for quality issues
 
-### 2. Daily Domain Analysis
-Automatically analyzes domains from the latest pixel data for DNS, HTTP, and WHOIS status.
+**Quality Standards:**
+- Minimum test coverage requirements
+- No high/critical security vulnerabilities allowed
+- Consistent code formatting and style enforcement
+- Cross-platform compatibility testing
 
-**Features:**
-- **Schedule**: Runs daily at 2:00 AM UTC
-- **Smart Detection**: Automatically finds the latest pixel data file in `data/` folder
-- **Comprehensive Analysis**: DNS resolution, HTTP status, WHOIS registration, CNAME records
-- **Report Generation**: Results saved to `reports/report_YYYYMMDD_HHMMSS.json` and `reports/report_YYYYMMDD_HHMMSS.md`
-- **Manual Trigger**: Can be manually triggered from the GitHub Actions tab
+### 2. 🌐 Automated Daily Domain Analysis (`daily-domain-analysis.yml`)
+**Intelligent domain health monitoring** that automatically analyzes all domains from the latest pixel data.
+
+**Smart Features:**
+- **⏰ Scheduled Execution**: Runs daily at 2:00 AM UTC for consistent monitoring
+- **🔍 Auto-Discovery**: Automatically locates the most recent pixel data file
+- **⚡ High-Performance Processing**: Multi-threaded analysis with 20 concurrent workers
+- **📊 Comprehensive Health Checks**: DNS resolution, HTTP availability, WHOIS registration
+- **📝 Dual Report Generation**: Both JSON data files and human-readable markdown reports
+- **💾 Automated Commit**: Results automatically committed to repository with detailed metadata
+- **🎯 Manual Trigger Support**: Can be manually executed from GitHub Actions interface
+
+**Analysis Capabilities:**
+- DNS status verification (NOERROR, NXDOMAIN, timeouts)
+- HTTP availability testing with status code analysis
+- WHOIS registration status checking
+- Progress tracking with detailed execution summaries
+- Error handling and timeout management (15-second timeout per domain)
 
 ### Viewing Historical Data:
 - **Pixel Data**: Check the `data/` folder for historical pixel analysis files

@@ -16,14 +16,14 @@ def read_requirements():
         return [line.strip() for line in fh if line.strip() and not line.startswith("#")]
 
 setup(
-    name="million-dollar-homepage-analyzer",
+    name="mdh-monitoring",
     version="1.0.0",
-    author="Million Dollar Homepage Analyzer",
-    author_email="contact@example.com",
-    description="A Python tool to analyze and extract pixel data from the Million Dollar Homepage",
+    author="Dani Labs",
+    author_email="dani@danilabs.com",
+    description="Million Dollar Homepage Monitoring & Analysis Tool - Track pixel data, domain health, and historical changes",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/million-dollar-homepage-analyzer",
+    url="https://github.com/danilabs/mdh-monitoring",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",
@@ -59,10 +59,11 @@ setup(
     },
     include_package_data=True,
     zip_safe=False,
-    keywords="million dollar homepage, web scraping, data analysis, pixel analysis",
+    keywords="million dollar homepage, web scraping, data analysis, pixel analysis, domain monitoring, historical tracking",
     project_urls={
-        "Bug Reports": "https://github.com/yourusername/million-dollar-homepage-analyzer/issues",
-        "Source": "https://github.com/yourusername/million-dollar-homepage-analyzer",
-        "Documentation": "https://github.com/yourusername/million-dollar-homepage-analyzer#readme",
+        "Bug Reports": "https://github.com/danilabs/mdh-monitoring/issues",
+        "Source": "https://github.com/danilabs/mdh-monitoring",
+        "Documentation": "https://github.com/danilabs/mdh-monitoring#readme",
+        "Changelog": "https://github.com/danilabs/mdh-monitoring/releases",
     },
 )

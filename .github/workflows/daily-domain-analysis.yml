@@ -1,40 +1,56 @@
-name: Daily Domain Analysis
+name: 🌐 Daily Domain Health Monitoring
 
 on:
   schedule:
-    # Run daily at 2:00 AM UTC (after the monthly pixel analysis)
+    # Run daily at 2:00 AM UTC for comprehensive domain health analysis
     - cron: '0 2 * * *'
   workflow_dispatch:
-    # Allow manual triggering
+    inputs:
+      source_file:
+        description: 'Specific pixel data file to analyze (optional - will auto-detect latest if not provided)'
+        required: false
+        type: string
+      workers:
+        description: 'Number of concurrent workers for domain analysis'
+        required: false
+        default: '20'
+        type: string
+      timeout:
+        description: 'Timeout per domain in seconds'
+        required: false
+        default: '15'
+        type: string
 
 permissions:
   contents: write
 
 jobs:
-  domain-analysis:
+  domain-health-analysis:
+    name: 🔍 Comprehensive Domain Health Assessment
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     
     steps:
-    - name: Checkout repository
+    - name: 📥 Checkout repository with full history
       uses: actions/checkout@v5
       with:
         fetch-depth: 0  # Fetch all history to ensure we have all data files
         token: ${{ secrets.GITHUB_TOKEN }}
     
-    - name: Set up Python
+    - name: 🐍 Set up Python 3.9 runtime
       uses: actions/setup-python@v6
       with:
         python-version: '3.9'
     
-    - name: Install dependencies
+    - name: 📦 Install MDH analyzer dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
-    - name: Create reports directory
+    - name: 📁 Prepare reports output directory
       run: mkdir -p reports
     
-    - name: Find latest pixel data file
+    - name: 🔍 Locate most recent pixel tracking data
       id: find-latest
       run: |
         # Find the most recent pixel data file in the data directory
@@ -46,26 +62,45 @@ jobs:
         echo "latest_file=$LATEST_FILE" >> $GITHUB_OUTPUT
         echo "Found latest pixel data file: $LATEST_FILE"
     
-    - name: Run domain analysis
+    - name: 🚀 Execute comprehensive domain analysis
+      env:
+        SOURCE_FILE: ${{ inputs.source_file || steps.find-latest.outputs.latest_file }}
+        WORKERS: ${{ inputs.workers || '20' }}
+        TIMEOUT: ${{ inputs.timeout || '15' }}
       run: |
-        echo "Running domain analysis on: ${{ steps.find-latest.outputs.latest_file }}"
-        echo "Using threading with 20 concurrent workers for faster processing"
-        python -m mdh_analyzer domains "${{ steps.find-latest.outputs.latest_file }}" --output-dir reports --workers 20 --timeout 15
+        echo "🔍 Starting comprehensive domain health analysis..."
+        echo "📁 Source file: $SOURCE_FILE"
+        echo "⚡ Concurrent workers: $WORKERS"
+        echo "⏱️ Timeout per domain: ${TIMEOUT}s"
+        echo ""
+        
+        python -m mdh_analyzer domains "$SOURCE_FILE" \
+          --output-dir reports \
+          --workers "$WORKERS" \
+          --timeout "$TIMEOUT" \
+          --verbose
     
-    - name: Generate markdown report
+    - name: 📝 Generate comprehensive markdown report
+      env:
+        SOURCE_FILE: ${{ inputs.source_file || steps.find-latest.outputs.latest_file }}
       run: |
-        # Find the most recent domain analysis report
         LATEST_REPORT=$(ls -t reports/report_*.json 2>/dev/null | head -n1)
+        
         if [ -n "$LATEST_REPORT" ]; then
-          echo "Generating markdown report using:"
-          echo "  Pixel data: ${{ steps.find-latest.outputs.latest_file }}"
-          echo "  Domain analysis: $LATEST_REPORT"
-          python -m mdh_analyzer report "${{ steps.find-latest.outputs.latest_file }}" "$LATEST_REPORT"
+          echo "📊 Generating comprehensive markdown report..."
+          echo "📁 Pixel data source: $SOURCE_FILE"
+          echo "📋 Domain analysis data: $LATEST_REPORT"
+          echo ""
+          
+          python -m mdh_analyzer report "$SOURCE_FILE" "$LATEST_REPORT"
+          
+          echo "✅ Markdown report generated successfully"
         else
-          echo "No domain analysis report found to generate markdown report"
+          echo "❌ No domain analysis report found - cannot generate markdown report"
+          exit 1
         fi
     
-    - name: Check for new reports
+    - name: ✅ Verify report generation success
       id: check-reports
       run: |
         # Check if any new report files were created (both JSON and MD)
@@ -77,63 +112,98 @@ jobs:
           echo "No new reports generated"
         fi
     
-    - name: Commit and push results
+    - name: 💾 Commit and publish analysis results
       if: steps.check-reports.outputs.new_reports == 'true'
+      env:
+        SOURCE_FILE: ${{ steps.find-latest.outputs.latest_file }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
+        git config --local user.email "mdh-monitoring@danilabs.com"
+        git config --local user.name "MDH Monitoring Bot"
         
         # Add new report files (both JSON and MD)
         git add reports/report_*.json reports/report_*.md
         
-        # Create commit message with timestamp and source file
+        # Create detailed commit message with analysis metadata
         TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
-        SOURCE_FILE="${{ steps.find-latest.outputs.latest_file }}"
+        REPORT_COUNT=$(ls reports/report_*.json 2>/dev/null | wc -l)
         
-        git commit -m "Daily domain analysis - $TIMESTAMP
+        git commit -m "🌐 Daily Domain Health Analysis - $TIMESTAMP
 
-        Source: $SOURCE_FILE
-        Generated comprehensive domain analysis with JSON data and markdown report.
+        📊 **Analysis Summary:**
+        - Source Data: $SOURCE_FILE
+        - Reports Generated: $REPORT_COUNT new analysis files
+        - Analysis Type: Comprehensive domain health monitoring
         
-        Analysis includes:
-        - DNS resolution status (NOERROR, NXDOMAIN, etc.)
-        - HTTP availability and status codes
-        - WHOIS registration status
-        - Summary statistics and distributions
-        - Available domains sorted by pixel count
-        - Markdown report for easy reading"
+        🔍 **Health Checks Performed:**
+        - DNS resolution status verification
+        - HTTP/HTTPS availability testing
+        - WHOIS registration status checking
+        - Multi-threaded processing for efficiency
+        
+        📋 **Generated Reports:**
+        - JSON data files with detailed domain analysis
+        - Human-readable markdown summaries
+        - Available domains sorted by pixel value
+        - Statistical breakdowns and trends
+        
+        🤖 Automated by MDH Monitoring Bot"
         
         git push
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
-    - name: Create summary
+    - name: 📊 Generate comprehensive execution summary
       if: always()
+      env:
+        SOURCE_FILE: ${{ steps.find-latest.outputs.latest_file }}
+        NEW_REPORTS: ${{ steps.check-reports.outputs.new_reports }}
+        WORKERS: ${{ inputs.workers || '20' }}
+        TIMEOUT: ${{ inputs.timeout || '15' }}
       run: |
-        echo "## Daily Domain Analysis Summary" >> $GITHUB_STEP_SUMMARY
+        echo "# 🌐 Daily Domain Health Monitoring Report" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
-        echo "**Source File:** ${{ steps.find-latest.outputs.latest_file }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Execution Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+        echo "**Source Data:** \`$SOURCE_FILE\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Processing Configuration:** $WORKERS workers, ${TIMEOUT}s timeout" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        if [ "${{ steps.check-reports.outputs.new_reports }}" == "true" ]; then
-          echo "✅ **Status:** Domain analysis completed successfully" >> $GITHUB_STEP_SUMMARY
+        if [ "$NEW_REPORTS" == "true" ]; then
+          echo "## ✅ Analysis Completed Successfully" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Generated Reports:**" >> $GITHUB_STEP_SUMMARY
+          
+          # Count domains analyzed
+          LATEST_REPORT=$(ls -t reports/report_*.json 2>/dev/null | head -n1)
+          if [ -f "$LATEST_REPORT" ]; then
+            DOMAIN_COUNT=$(python3 -c "
+        import json
+        try:
+            with open('$LATEST_REPORT') as f:
+                data = json.load(f)
+                print(data.get('metadata', {}).get('total_domains', 'Unknown'))
+        except:
+            print('Unknown')
+        " 2>/dev/null || echo "Unknown")
+            echo "**Domains Analyzed:** $DOMAIN_COUNT" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Generated Reports" >> $GITHUB_STEP_SUMMARY
           for report in reports/report_*.json reports/report_*.md; do
             if [ -f "$report" ]; then
-              echo "- \`$report\`" >> $GITHUB_STEP_SUMMARY
+              SIZE=$(du -h "$report" | cut -f1)
+              echo "- \`$report\` ($SIZE)" >> $GITHUB_STEP_SUMMARY
             fi
           done
         else
-          echo "❌ **Status:** No new reports generated" >> $GITHUB_STEP_SUMMARY
+          echo "## ❌ Analysis Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "No new reports were generated. Check the workflow logs for details." >> $GITHUB_STEP_SUMMARY
         fi
         
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Analysis Features:**" >> $GITHUB_STEP_SUMMARY
-        echo "- DNS resolution checking" >> $GITHUB_STEP_SUMMARY
-        echo "- HTTP status verification" >> $GITHUB_STEP_SUMMARY
-        echo "- WHOIS registration status" >> $GITHUB_STEP_SUMMARY
-        echo "- Comprehensive summary statistics" >> $GITHUB_STEP_SUMMARY
-        echo "- Multi-threaded processing (20 concurrent workers)" >> $GITHUB_STEP_SUMMARY
-        echo "- Progress tracking with 10% increments" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔍 Analysis Capabilities" >> $GITHUB_STEP_SUMMARY
+        echo "- **DNS Health**: Resolution status, NXDOMAIN detection, timeout handling" >> $GITHUB_STEP_SUMMARY
+        echo "- **HTTP Availability**: Status code analysis, SSL verification, redirect handling" >> $GITHUB_STEP_SUMMARY
+        echo "- **WHOIS Status**: Registration verification, availability detection" >> $GITHUB_STEP_SUMMARY
+        echo "- **Performance**: Multi-threaded processing with configurable workers" >> $GITHUB_STEP_SUMMARY
+        echo "- **Reporting**: JSON data + human-readable markdown summaries" >> $GITHUB_STEP_SUMMARY
+        echo "- **Historical Tracking**: Timestamped snapshots for trend analysis" >> $GITHUB_STEP_SUMMARY
