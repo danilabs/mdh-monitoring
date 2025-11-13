@@ -19,7 +19,7 @@ class HTMLMapParser:
             html_file: Path to the HTML file to parse
         """
         self.html_file = html_file
-        self.soup = None
+        self.soup: Optional[BeautifulSoup] = None
         self._load_html()
 
     def _load_html(self) -> None:

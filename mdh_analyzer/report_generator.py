@@ -203,7 +203,7 @@ class MarkdownReportGenerator:
         Returns:
             Dictionary categorizing domains by status
         """
-        categorized = {"available": [], "registered": [], "nxdomain": [], "unknown": []}
+        categorized: Dict[str, List[Dict]] = {"available": [], "registered": [], "nxdomain": [], "unknown": []}
 
         for domain_info in domains:
             domain = domain_info.get("domain", "")

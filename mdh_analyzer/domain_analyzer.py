@@ -351,9 +351,9 @@ class DomainAnalyzer:
         if not results:
             return {}
 
-        dns_stats = {}
-        http_stats = {}
-        whois_stats = {}
+        dns_stats: Dict[str, int] = {}
+        http_stats: Dict[str, int] = {}
+        whois_stats: Dict[str, int] = {}
 
         for result in results:
             # DNS statistics

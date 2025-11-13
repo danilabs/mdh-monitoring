@@ -25,7 +25,7 @@ class MillionDollarAnalyzer:
         self.url = url
         self.html_file = "web.html"
         self.downloader = WebDownloader()
-        self.parser = None
+        self.parser: Optional[HTMLMapParser] = None
 
     def download_page(self) -> bool:
         """
