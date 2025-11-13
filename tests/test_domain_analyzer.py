@@ -212,8 +212,9 @@ class TestDomainAnalyzer:
         mock_result.registrar = "Example Registrar"
         mock_whois.return_value = mock_result
 
-        status = self.analyzer.check_whois_status("example.com")
+        status, details = self.analyzer.check_whois_status("example.com")
         assert status == "registered"
+        assert isinstance(details, dict)
 
     @patch("whois.whois")
     def test_check_whois_status_available(self, mock_whois):
@@ -223,16 +224,18 @@ class TestDomainAnalyzer:
         mock_result.creation_date = None
         mock_whois.return_value = mock_result
 
-        status = self.analyzer.check_whois_status("available.example")
+        status, details = self.analyzer.check_whois_status("available.example")
         assert status == "available"
+        assert isinstance(details, dict)
 
     @patch("whois.whois")
     def test_check_whois_status_error(self, mock_whois):
         """Test WHOIS error handling."""
         mock_whois.side_effect = Exception("WHOIS error")
 
-        status = self.analyzer.check_whois_status("error.example")
+        status, details = self.analyzer.check_whois_status("error.example")
         assert status == "unknown"
+        assert isinstance(details, dict)
 
     @patch.object(DomainAnalyzer, "check_dns_status")
     @patch.object(DomainAnalyzer, "check_http_status")
@@ -241,7 +244,7 @@ class TestDomainAnalyzer:
         """Test complete domain analysis."""
         mock_dns.return_value = ("NOERROR", None)
         mock_http.return_value = 200
-        mock_whois.return_value = "registered"
+        mock_whois.return_value = ("registered", {})
 
         result = self.analyzer.analyze_domain("example.com")
 
