@@ -16,6 +16,9 @@ from datetime import datetime, timezone
 from typing import Dict, List, Tuple, Optional
 import logging
 from urllib.parse import urlparse
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -25,18 +28,21 @@ logger = logging.getLogger(__name__)
 class DomainAnalyzer:
     """Analyzes domains for DNS, HTTP, and WHOIS status"""
     
-    def __init__(self, timeout: int = 10):
+    def __init__(self, timeout: int = 10, max_workers: int = 10):
         """
         Initialize the domain analyzer
         
         Args:
             timeout: Timeout in seconds for HTTP requests
+            max_workers: Maximum number of concurrent threads for analysis
         """
         self.timeout = timeout
+        self.max_workers = max_workers
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
+        self._lock = threading.Lock()
     
     def extract_domains_from_json(self, json_file_path: str) -> List[str]:
         """
@@ -66,7 +72,7 @@ class DomainAnalyzer:
             logger.error(f"Error extracting domains from JSON: {e}")
             return []
     
-    def check_dns_status(self, domain: str) -> str:
+    def check_dns_status(self, domain: str) -> Tuple[str, Optional[str]]:
         """
         Check DNS resolution status for a domain
         
@@ -74,23 +80,43 @@ class DomainAnalyzer:
             domain: Domain name to check
             
         Returns:
-            DNS status code (NOERROR, NXDOMAIN, SERVFAIL, etc.)
+            Tuple of (DNS status code, CNAME record if available)
         """
         try:
             # Try to resolve A record
             dns.resolver.resolve(domain, 'A')
-            return 'NOERROR'
+            return ('NOERROR', None)
         except dns.resolver.NXDOMAIN:
-            return 'NXDOMAIN'
+            # Check for CNAME record even if NXDOMAIN
+            cname = self._get_cname_record(domain)
+            return ('NXDOMAIN', cname)
         except dns.resolver.NoAnswer:
-            return 'NOERROR'  # Domain exists but no A record
+            return ('NOERROR', None)  # Domain exists but no A record
         except dns.resolver.Timeout:
-            return 'TIMEOUT'
+            return ('TIMEOUT', None)
         except dns.resolver.NoNameservers:
-            return 'SERVFAIL'
+            return ('SERVFAIL', None)
         except Exception as e:
             logger.debug(f"DNS error for {domain}: {e}")
-            return 'ERROR'
+            return ('ERROR', None)
+    
+    def _get_cname_record(self, domain: str) -> Optional[str]:
+        """
+        Get CNAME record for a domain
+        
+        Args:
+            domain: Domain name to check
+            
+        Returns:
+            CNAME record if available, None otherwise
+        """
+        try:
+            answers = dns.resolver.resolve(domain, 'CNAME')
+            if answers:
+                return str(answers[0]).rstrip('.')
+        except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.Timeout, Exception):
+            pass
+        return None
     
     def check_http_status(self, domain: str) -> int:
         """
@@ -164,48 +190,116 @@ class DomainAnalyzer:
             logger.debug(f"WHOIS error for {domain}: {e}")
             return 'unknown'
     
-    def analyze_domain(self, domain: str) -> Dict:
+    def analyze_domain(self, domain: str, show_progress: bool = True) -> Dict:
         """
         Perform complete analysis of a single domain
         
         Args:
             domain: Domain name to analyze
+            show_progress: Whether to show individual domain progress (for non-threaded mode)
             
         Returns:
             Dictionary with analysis results
         """
-        logger.info(f"Analyzing domain: {domain}")
+        if show_progress:
+            logger.debug(f"Analyzing domain: {domain}")
+        
+        dns_status, cname_record = self.check_dns_status(domain)
         
         result = {
             'domain': domain,
-            'dns_status': self.check_dns_status(domain),
+            'dns_status': dns_status,
             'http_status': self.check_http_status(domain),
             'whois_status': self.check_whois_status(domain),
             'analyzed_at': datetime.now(timezone.utc).isoformat()
         }
         
+        # Add CNAME record if available
+        if cname_record:
+            result['cname_record'] = cname_record
+        
         return result
     
-    def analyze_domains_from_json(self, json_file_path: str) -> List[Dict]:
+    def analyze_domains_from_json(self, json_file_path: str, use_threading: bool = True) -> List[Dict]:
         """
         Analyze all domains from a pixel data JSON file
         
         Args:
             json_file_path: Path to the pixel data JSON file
+            use_threading: Whether to use threading for concurrent analysis
             
         Returns:
             List of domain analysis results
         """
         domains = self.extract_domains_from_json(json_file_path)
-        results = []
         
         logger.info(f"Found {len(domains)} unique domains to analyze")
         
-        for i, domain in enumerate(domains, 1):
-            logger.info(f"Processing domain {i}/{len(domains)}: {domain}")
-            result = self.analyze_domain(domain)
-            results.append(result)
+        if use_threading:
+            return self._analyze_domains_threaded(domains)
+        else:
+            return self._analyze_domains_sequential(domains)
+    
+    def _analyze_domains_sequential(self, domains: List[str]) -> List[Dict]:
+        """Analyze domains sequentially with progress tracking"""
+        results = []
+        total_domains = len(domains)
         
+        for i, domain in enumerate(domains, 1):
+            result = self.analyze_domain(domain, show_progress=False)
+            results.append(result)
+            
+            # Show progress every 10%
+            progress_percent = (i * 100) // total_domains
+            if i == 1 or progress_percent % 10 == 0 or i == total_domains:
+                logger.info(f"Progress: {progress_percent}% ({i}/{total_domains} domains analyzed)")
+        
+        return results
+    
+    def _analyze_domains_threaded(self, domains: List[str]) -> List[Dict]:
+        """Analyze domains using threading with progress tracking"""
+        results = []
+        total_domains = len(domains)
+        completed_count = 0
+        last_reported_percent = -1
+        
+        logger.info(f"Starting threaded analysis with {self.max_workers} workers")
+        
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            # Submit all tasks
+            future_to_domain = {
+                executor.submit(self.analyze_domain, domain, False): domain
+                for domain in domains
+            }
+            
+            # Process completed tasks
+            for future in as_completed(future_to_domain):
+                domain = future_to_domain[future]
+                try:
+                    result = future.result()
+                    results.append(result)
+                except Exception as e:
+                    logger.error(f"Error analyzing domain {domain}: {e}")
+                    # Add error result
+                    results.append({
+                        'domain': domain,
+                        'dns_status': 'ERROR',
+                        'http_status': 0,
+                        'whois_status': 'unknown',
+                        'analyzed_at': datetime.now(timezone.utc).isoformat(),
+                        'error': str(e)
+                    })
+                
+                completed_count += 1
+                progress_percent = (completed_count * 100) // total_domains
+                
+                # Show progress every 10% or at completion
+                if progress_percent > last_reported_percent and (progress_percent % 10 == 0 or completed_count == total_domains):
+                    logger.info(f"Progress: {progress_percent}% ({completed_count}/{total_domains} domains analyzed)")
+                    last_reported_percent = progress_percent
+        
+        # Sort results by domain name to maintain consistency
+        results.sort(key=lambda x: x['domain'])
         return results
     
     def save_domain_report(self, results: List[Dict], output_path: str) -> None:
@@ -282,6 +376,8 @@ def main():
     parser.add_argument('input_file', help='Path to pixel data JSON file')
     parser.add_argument('-o', '--output', help='Output directory for reports', default='reports')
     parser.add_argument('-t', '--timeout', type=int, default=10, help='HTTP timeout in seconds')
+    parser.add_argument('-w', '--workers', type=int, default=10, help='Number of concurrent workers (default: 10)')
+    parser.add_argument('--no-threading', action='store_true', help='Disable threading (sequential analysis)')
     
     args = parser.parse_args()
     
@@ -289,10 +385,11 @@ def main():
     os.makedirs(args.output, exist_ok=True)
     
     # Initialize analyzer
-    analyzer = DomainAnalyzer(timeout=args.timeout)
+    analyzer = DomainAnalyzer(timeout=args.timeout, max_workers=args.workers)
     
     # Analyze domains
-    results = analyzer.analyze_domains_from_json(args.input_file)
+    use_threading = not args.no_threading
+    results = analyzer.analyze_domains_from_json(args.input_file, use_threading=use_threading)
     
     # Generate output filename
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')

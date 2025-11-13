@@ -1,0 +1,308 @@
+name: CI - Code Quality and Security
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9, 3.10, 3.11, 3.12]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    - name: Run tests with coverage
+      run: |
+        pytest tests/ -v --cov=mdh_analyzer --cov-report=xml --cov-report=term-missing
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  lint:
+    name: Code Quality (Pylint)
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-lint-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-lint-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    - name: Create pylint config
+      run: |
+        cat > .pylintrc << EOF
+        [MASTER]
+        disable=
+            C0114,  # missing-module-docstring
+            C0115,  # missing-class-docstring
+            C0116,  # missing-function-docstring
+            R0903,  # too-few-public-methods
+            R0913,  # too-many-arguments
+            W0613,  # unused-argument
+            C0103,  # invalid-name
+            R0801,  # duplicate-code
+            W0511,  # fixme
+            R0912,  # too-many-branches
+            R0915,  # too-many-statements
+
+        [FORMAT]
+        max-line-length=120
+
+        [DESIGN]
+        max-args=10
+        max-locals=20
+        max-returns=8
+        max-branches=15
+        max-statements=60
+        EOF
+
+    - name: Run Pylint
+      run: |
+        pylint mdh_analyzer/ --output-format=text --score=yes --fail-under=7.0
+      continue-on-error: false
+
+    - name: Run Pylint with JSON output for annotations
+      run: |
+        pylint mdh_analyzer/ --output-format=json > pylint-report.json || true
+
+    - name: Annotate PR with Pylint results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          try {
+            const pylintReport = JSON.parse(fs.readFileSync('pylint-report.json', 'utf8'));
+            
+            for (const issue of pylintReport.slice(0, 10)) { // Limit to 10 annotations
+              const annotation = {
+                path: issue.path,
+                start_line: issue.line,
+                end_line: issue.line,
+                annotation_level: issue.type === 'error' ? 'failure' : 'warning',
+                message: `${issue.symbol}: ${issue.message}`,
+                title: `Pylint ${issue.type}`
+              };
+              
+              console.log(`::${annotation.annotation_level} file=${annotation.path},line=${annotation.start_line}::${annotation.message}`);
+            }
+          } catch (error) {
+            console.log('No pylint issues found or error reading report');
+          }
+
+  security:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-security-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-security-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install safety bandit semgrep
+
+    - name: Run Safety (dependency vulnerability check)
+      run: |
+        safety check --json --output safety-report.json || true
+        safety check --short-report
+
+    - name: Run Bandit (security linter)
+      run: |
+        bandit -r mdh_analyzer/ -f json -o bandit-report.json || true
+        bandit -r mdh_analyzer/ -f txt
+
+    - name: Run Semgrep (static analysis)
+      run: |
+        semgrep --config=auto mdh_analyzer/ --json --output=semgrep-report.json || true
+        semgrep --config=auto mdh_analyzer/ --text
+
+    - name: Upload security reports as artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          safety-report.json
+          bandit-report.json
+          semgrep-report.json
+
+    - name: Check for high severity vulnerabilities
+      run: |
+        # Check Safety report for high severity issues
+        if [ -f safety-report.json ]; then
+          HIGH_VULN=$(python -c "
+        import json
+        try:
+            with open('safety-report.json') as f:
+                data = json.load(f)
+                high_vuln = [v for v in data.get('vulnerabilities', []) if v.get('severity', '').lower() in ['high', 'critical']]
+                print(len(high_vuln))
+        except:
+            print(0)
+        ")
+          if [ "$HIGH_VULN" -gt 0 ]; then
+            echo "❌ Found $HIGH_VULN high/critical severity vulnerabilities"
+            exit 1
+          fi
+        fi
+
+        # Check Bandit report for high severity issues
+        if [ -f bandit-report.json ]; then
+          HIGH_BANDIT=$(python -c "
+        import json
+        try:
+            with open('bandit-report.json') as f:
+                data = json.load(f)
+                high_issues = [r for r in data.get('results', []) if r.get('issue_severity', '').upper() in ['HIGH', 'CRITICAL']]
+                print(len(high_issues))
+        except:
+            print(0)
+        ")
+          if [ "$HIGH_BANDIT" -gt 0 ]; then
+            echo "❌ Found $HIGH_BANDIT high/critical severity security issues"
+            exit 1
+          fi
+        fi
+
+  type-check:
+    name: Type Checking
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install mypy types-requests
+
+    - name: Run MyPy type checking
+      run: |
+        mypy mdh_analyzer/ --ignore-missing-imports --show-error-codes --pretty
+      continue-on-error: true
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run integration test
+      run: |
+        python test_improvements.py
+
+    - name: Upload test artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: integration-test-results
+        path: |
+          test_data/
+        retention-days: 7
+
+  summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [test, lint, security, type-check, integration-test]
+    if: always()
+
+    steps:
+    - name: Check all jobs status
+      run: |
+        echo "## CI Results Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Tests | ${{ needs.test.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Lint (Pylint) | ${{ needs.lint.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Security Scan | ${{ needs.security.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Type Check | ${{ needs.type-check.result == 'success' && '✅ Passed' || '⚠️ Warning' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Integration Test | ${{ needs.integration-test.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        
+        # Fail the workflow if critical jobs failed
+        if [[ "${{ needs.test.result }}" != "success" || "${{ needs.lint.result }}" != "success" || "${{ needs.security.result }}" != "success" ]]; then
+          echo "❌ CI failed due to critical job failures"
+          exit 1
+        fi
+        
+        echo "✅ All critical CI checks passed!"

@@ -1,5 +1,10 @@
 # Million Dollar Homepage Analyzer
 
+[![CI](https://github.com/yourusername/mdh-monitoring/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/mdh-monitoring/actions/workflows/ci.yml)
+[![Daily Domain Analysis](https://github.com/yourusername/mdh-monitoring/actions/workflows/daily-domain-analysis.yml/badge.svg)](https://github.com/yourusername/mdh-monitoring/actions/workflows/daily-domain-analysis.yml)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A Python tool to analyze and extract pixel data from the Million Dollar Homepage (http://www.milliondollarhomepage.com/).
 
 ## Overview
@@ -19,9 +24,23 @@ This project downloads and analyzes the Million Dollar Homepage, extracting pixe
 ## Installation
 
 ```bash
-git clone https://github.com/yourusername/million-dollar-homepage-analyzer.git
-cd million-dollar-homepage-analyzer
+git clone https://github.com/yourusername/mdh-monitoring.git
+cd mdh-monitoring
 pip install -r requirements.txt
+```
+
+### Development Installation
+
+For development with all testing and linting tools:
+
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+```
+
+Or use the provided Makefile:
+
+```bash
+make dev-setup
 ```
 
 ## Usage
@@ -258,24 +277,25 @@ million-dollar-homepage-analyzer/
 
 ## Automated Analysis Workflows
 
-This repository includes two GitHub Actions for automated analysis:
+This repository includes multiple GitHub Actions for automated analysis and quality assurance:
 
-### 1. Monthly Pixel Analysis
-Automatically downloads and analyzes the Million Dollar Homepage for pixel data.
+### 1. Continuous Integration (CI)
+Comprehensive code quality and security checks that run on every push and pull request.
 
 **Features:**
-- **Schedule**: Runs on the 1st of each month at 12:00 UTC
-- **Manual Trigger**: Can be manually triggered from the GitHub Actions tab
-- **Data Storage**: Results saved to `data/pixel_data_YYYYMMDD_HHMMSS.json`
-- **Version Control**: Automatically commits and pushes new data files
+- **Code Quality**: Pylint analysis with configurable scoring thresholds
+- **Security Scanning**: Safety (dependency vulnerabilities), Bandit (security linter), Semgrep (static analysis)
+- **Testing**: Unit tests with coverage reporting across Python 3.9-3.12
+- **Type Checking**: MyPy static type analysis
+- **Integration Testing**: End-to-end functionality verification
 
 ### 2. Daily Domain Analysis
 Automatically analyzes domains from the latest pixel data for DNS, HTTP, and WHOIS status.
 
 **Features:**
-- **Schedule**: Runs daily at 2:00 AM UTC (after monthly pixel analysis)
+- **Schedule**: Runs daily at 2:00 AM UTC
 - **Smart Detection**: Automatically finds the latest pixel data file in `data/` folder
-- **Comprehensive Analysis**: DNS resolution, HTTP status, WHOIS registration
+- **Comprehensive Analysis**: DNS resolution, HTTP status, WHOIS registration, CNAME records
 - **Report Generation**: Results saved to `reports/report_YYYYMMDD_HHMMSS.json` and `reports/report_YYYYMMDD_HHMMSS.md`
 - **Manual Trigger**: Can be manually triggered from the GitHub Actions tab
 
@@ -284,6 +304,42 @@ Automatically analyzes domains from the latest pixel data for DNS, HTTP, and WHO
 - **Domain Reports**: Check the `reports/` folder for domain analysis reports (JSON data and markdown summaries)
 - Each file contains a complete snapshot with timestamps for tracking changes over time
 - Markdown reports provide human-readable summaries with available domains sorted by pixel value
+
+## Development
+
+### Local Development Commands
+
+This project includes a Makefile for easy development:
+
+```bash
+# Set up development environment
+make dev-setup
+
+# Run all CI checks locally
+make ci
+
+# Individual commands
+make test              # Run tests with coverage
+make lint              # Run pylint
+make security          # Run security scans
+make type-check        # Run type checking
+make format            # Format code with black and isort
+make clean             # Clean up generated files
+
+# Quick development workflow
+make quick-check       # Run lint + test
+make pre-commit        # Run all pre-commit checks
+```
+
+### Code Quality Standards
+
+This project maintains high code quality standards:
+
+- **Pylint Score**: Minimum 7.0/10
+- **Test Coverage**: Minimum 70%
+- **Security**: No high/critical vulnerabilities allowed
+- **Type Hints**: Encouraged for better code documentation
+- **Code Formatting**: Black and isort for consistent style
 
 ## Domain Analysis Features
 

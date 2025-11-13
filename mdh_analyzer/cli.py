@@ -43,12 +43,18 @@ def analyze_domains(args):
         
         if args.verbose:
             print(f"Analyzing domains from: {args.input_file}")
+            if hasattr(args, 'workers'):
+                print(f"Using {args.workers} concurrent workers")
+            if hasattr(args, 'no_threading') and args.no_threading:
+                print("Threading disabled - using sequential analysis")
         
         # Initialize analyzer
-        analyzer = DomainAnalyzer(timeout=args.timeout)
+        max_workers = getattr(args, 'workers', 10)
+        analyzer = DomainAnalyzer(timeout=args.timeout, max_workers=max_workers)
         
         # Analyze domains
-        results = analyzer.analyze_domains_from_json(args.input_file)
+        use_threading = not getattr(args, 'no_threading', False)
+        results = analyzer.analyze_domains_from_json(args.input_file, use_threading=use_threading)
         
         # Generate output filename
         from datetime import datetime
@@ -159,6 +165,17 @@ def main():
         type=int,
         default=10,
         help='HTTP timeout in seconds (default: 10)'
+    )
+    domain_parser.add_argument(
+        '--workers', '-w',
+        type=int,
+        default=10,
+        help='Number of concurrent workers (default: 10)'
+    )
+    domain_parser.add_argument(
+        '--no-threading',
+        action='store_true',
+        help='Disable threading (sequential analysis)'
     )
     domain_parser.add_argument(
         '--verbose', '-v',

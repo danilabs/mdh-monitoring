@@ -49,7 +49,8 @@ jobs:
     - name: Run domain analysis
       run: |
         echo "Running domain analysis on: ${{ steps.find-latest.outputs.latest_file }}"
-        python -m mdh_analyzer domains "${{ steps.find-latest.outputs.latest_file }}" --output-dir reports
+        echo "Using threading with 20 concurrent workers for faster processing"
+        python -m mdh_analyzer domains "${{ steps.find-latest.outputs.latest_file }}" --output-dir reports --workers 20 --timeout 15
     
     - name: Generate markdown report
       run: |
@@ -134,3 +135,5 @@ jobs:
         echo "- HTTP status verification" >> $GITHUB_STEP_SUMMARY
         echo "- WHOIS registration status" >> $GITHUB_STEP_SUMMARY
         echo "- Comprehensive summary statistics" >> $GITHUB_STEP_SUMMARY
+        echo "- Multi-threaded processing (20 concurrent workers)" >> $GITHUB_STEP_SUMMARY
+        echo "- Progress tracking with 10% increments" >> $GITHUB_STEP_SUMMARY

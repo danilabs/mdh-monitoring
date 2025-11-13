@@ -338,24 +338,20 @@ class MarkdownReportGenerator:
             "",
             f"**{len(available_domains):,} domains** are available for purchase, representing **{total_pixels:,} pixels** of the Million Dollar Homepage.",
             "",
-            "### Top Available Domains by Pixel Count",
+            "### All Available Domains by Pixel Count",
             "",
             "| Domain | Pixels | DNS Status | HTTP Status |",
             "|--------|--------|------------|-------------|"
         ]
         
-        # Show top 20 available domains
-        for domain_info in available_domains[:20]:
+        # Show ALL available domains (not just top 20)
+        for domain_info in available_domains:
             domain = domain_info.get('domain', '')
             pixels = domain_info.get('pixels', 0)
             dns_status = domain_info.get('dns_status', '')
             http_status = domain_info.get('http_status', 0)
             
             lines.append(f"| `{domain}` | {pixels:,} | {dns_status} | {http_status} |")
-        
-        if len(available_domains) > 20:
-            lines.append(f"| ... | ... | ... | ... |")
-            lines.append(f"| *{len(available_domains) - 20:,} more domains* | | | |")
         
         lines.extend([
             "",
@@ -379,8 +375,8 @@ class MarkdownReportGenerator:
             "",
             "### Top Non-Existent Domains by Pixel Count",
             "",
-            "| Domain | Pixels | WHOIS Status |",
-            "|--------|--------|--------------|"
+            "| Domain | Pixels | WHOIS Status | CNAME |",
+            "|--------|--------|--------------|-------|"
         ]
         
         # Show top 15 NXDOMAIN domains
@@ -388,12 +384,16 @@ class MarkdownReportGenerator:
             domain = domain_info.get('domain', '')
             pixels = domain_info.get('pixels', 0)
             whois_status = domain_info.get('whois_status', '')
+            cname_record = domain_info.get('cname_record', '')
             
-            lines.append(f"| `{domain}` | {pixels:,} | {whois_status} |")
+            # Only show CNAME if domain is not available for purchase
+            cname_display = cname_record if whois_status != 'available' and cname_record else '-'
+            
+            lines.append(f"| `{domain}` | {pixels:,} | {whois_status} | {cname_display} |")
         
         if len(nxdomain_domains) > 15:
-            lines.append(f"| ... | ... | ... |")
-            lines.append(f"| *{len(nxdomain_domains) - 15:,} more domains* | | |")
+            lines.append(f"| ... | ... | ... | ... |")
+            lines.append(f"| *{len(nxdomain_domains) - 15:,} more domains* | | | |")
         
         lines.extend([
             "",
