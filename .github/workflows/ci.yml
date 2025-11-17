@@ -63,7 +63,7 @@ jobs:
         pytest tests/ -v --cov=mdh_analyzer --cov-report=xml --cov-report=term-missing
 
     - name: 📊 Upload coverage report to Codecov
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       with:
         file: ./coverage.xml
         flags: unittests
