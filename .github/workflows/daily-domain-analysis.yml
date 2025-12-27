@@ -32,7 +32,7 @@ jobs:
     
     steps:
     - name: 📥 Checkout repository with full history
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0  # Fetch all history to ensure we have all data files
         token: ${{ secrets.GITHUB_TOKEN }}
