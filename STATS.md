@@ -1,6 +1,6 @@
 ## Repository Statistics
 
-**Last Updated:** 2026-05-24 06:31:09 UTC
+**Last Updated:** 2026-05-31 06:54:14 UTC
 
 ### File Counts
 - **Pixel Data Files:** 7
@@ -9,9 +9,9 @@
 
 ### Latest Files
 - **Latest Pixel Data:** `data/pixel_data_20260501_125611.json`
-- **Latest Domain Report:** `reports/report_20260524_060742.json`
+- **Latest Domain Report:** `reports/report_20260531_062338.json`
 
 ### Repository Health
 - **Python Files:** 12
 - **GitHub Workflows:** 4
-- **Total Size:** 45M
+- **Total Size:** 46M
