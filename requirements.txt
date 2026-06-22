@@ -9,5 +9,5 @@ python-whois>=0.8.0
 pytest>=6.0.0
 pytest-cov>=2.10.0
 black>=21.0.0
-flake8>=3.8.0
+flake8>=7.3.0
 mypy>=0.800
