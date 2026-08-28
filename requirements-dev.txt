@@ -10,4 +10,4 @@ bandit>=1.7.0
 semgrep>=1.0.0
 black>=22.0.0
 isort>=5.10.0
-flake8>=5.0.0
+flake8>=7.3.0
