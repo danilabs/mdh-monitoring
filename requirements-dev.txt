@@ -9,5 +9,5 @@ safety>=2.3.0
 bandit>=1.7.0
 semgrep>=1.0.0
 black>=22.0.0
-isort>=5.10.0
+isort>=6.1.0
 flake8>=5.0.0
