@@ -3,7 +3,7 @@ requests>=2.25.0
 beautifulsoup4>=4.9.0
 lxml>=4.6.0
 dnspython>=2.4.0
-python-whois>=0.8.0
+python-whois>=0.9.6
 
 # Development dependencies (optional)
 pytest>=6.0.0
