@@ -1,7 +1,7 @@
 # Development dependencies
 pytest>=7.0.0
 pytest-cov>=4.0.0
-pytest-mock>=3.10.0
+pytest-mock>=3.15.1
 pylint>=2.15.0
 mypy>=1.0.0
 types-requests>=2.28.0
